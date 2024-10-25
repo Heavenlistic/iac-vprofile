@@ -15,13 +15,13 @@ on:
 
 env:
   # Credentials for deployment to AWS
-  AWS_ACCESS_KEY_ID: ${{ secrets.AWS_ACCESS_KEY_ID }}         # AWS Access Key ID
-  AWS_SECRET_ACCESS_KEY: ${{ secrets.AWS_SECRET_ACCESS_KEY }} # AWS Secret Access Key
+  AWS_ACCESS_KEY_ID: ${{ secrets.AWS_ACCESS_KEY_ID }}
+  AWS_SECRET_ACCESS_KEY: ${{ secrets.AWS_SECRET_ACCESS_KEY }}
 
   # S3 Bucket for the Terraform state
   BUCKET_TF_STATE: ${{ secrets.BUCKET_TF_STATE }}
-  AWS_REGION: us-east-1                    # AWS region for resources
-  EKS_CLUSTER: vprofile-eks                 # EKS cluster name
+  AWS_REGION: us-east-1
+  EKS_CLUSTER: vprofile-eks
 
 jobs:
   terraform:
@@ -55,6 +55,20 @@ jobs:
       # Validate Terraform configuration
       - name: Terraform Validate
         run: terraform validate
+
+      # Delete EKS Node Groups (if any)
+      - name: Delete EKS Node Groups
+        run: |
+          # List and delete each node group
+          NODEGROUPS=$(aws eks list-nodegroups --cluster-name ${{ env.EKS_CLUSTER }} --region ${{ env.AWS_REGION }} --query 'nodegroups' --output text)
+          if [ -n "$NODEGROUPS" ]; then
+            for NODEGROUP in $NODEGROUPS; do
+              aws eks delete-nodegroup --cluster-name ${{ env.EKS_CLUSTER }} --nodegroup-name $NODEGROUP --region ${{ env.AWS_REGION }}
+              echo "Deleting node group $NODEGROUP"
+              # Wait until the node group deletion is complete
+              aws eks wait nodegroup-deleted --cluster-name ${{ env.EKS_CLUSTER }} --nodegroup-name $NODEGROUP --region ${{ env.AWS_REGION }}
+            done
+          fi
 
       # Destroy all previously created resources
       - name: Terraform Destroy
