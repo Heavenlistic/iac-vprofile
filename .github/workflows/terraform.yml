@@ -67,4 +67,4 @@ jobs:
       # Destroy all resources
       - name: Terraform Destroy
         run: terraform destroy -no-color -input=false -auto-approve
-##
+####
