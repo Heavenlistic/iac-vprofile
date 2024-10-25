@@ -14,11 +14,8 @@ on:
       - terraform/**
 
 env:
-  # Credentials for deployment to AWS
   AWS_ACCESS_KEY_ID: ${{ secrets.AWS_ACCESS_KEY_ID }}
   AWS_SECRET_ACCESS_KEY: ${{ secrets.AWS_SECRET_ACCESS_KEY }}
-
-  # S3 Bucket for the Terraform state
   BUCKET_TF_STATE: ${{ secrets.BUCKET_TF_STATE }}
   AWS_REGION: us-east-1
   EKS_CLUSTER: vprofile-eks
@@ -34,42 +31,39 @@ jobs:
         working-directory: ./terraform
         
     steps:
-      # Checkout the repository
       - name: Checkout Source Code
         uses: actions/checkout@v4
 
-      # Set up Terraform
       - name: Set Up Terraform
         uses: hashicorp/setup-terraform@v2
         with:
-          terraform_version: 1.9.7  # Specify your Terraform version
+          terraform_version: 1.9.7
 
-      # Initialize Terraform
       - name: Terraform Init
         run: terraform init -backend-config="bucket=${{ env.BUCKET_TF_STATE }}"
 
-      # Check Terraform formatting
       - name: Terraform Format Check
         run: terraform fmt -check
 
-      # Validate Terraform configuration
       - name: Terraform Validate
         run: terraform validate
 
-      # Delete EKS Node Groups (if any)
+      # Delete EKS Node Groups before destroying the cluster
       - name: Delete EKS Node Groups
         run: |
-          # List and delete each node group
           NODEGROUPS=$(aws eks list-nodegroups --cluster-name ${{ env.EKS_CLUSTER }} --region ${{ env.AWS_REGION }} --query 'nodegroups' --output text)
           if [ -n "$NODEGROUPS" ]; then
             for NODEGROUP in $NODEGROUPS; do
               aws eks delete-nodegroup --cluster-name ${{ env.EKS_CLUSTER }} --nodegroup-name $NODEGROUP --region ${{ env.AWS_REGION }}
               echo "Deleting node group $NODEGROUP"
-              # Wait until the node group deletion is complete
               aws eks wait nodegroup-deleted --cluster-name ${{ env.EKS_CLUSTER }} --nodegroup-name $NODEGROUP --region ${{ env.AWS_REGION }}
             done
           fi
 
-      # Destroy all previously created resources
+      # Sleep for 60 seconds to ensure AWS propagates the node group deletion
+      - name: Wait for Node Group Deletion to Propagate
+        run: sleep 60
+
+      # Destroy all resources
       - name: Terraform Destroy
         run: terraform destroy -no-color -input=false -auto-approve
