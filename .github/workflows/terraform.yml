@@ -42,11 +42,11 @@ jobs:
       - name: Set Up Terraform
         uses: hashicorp/setup-terraform@v2
         with:
-          terraform_version: 1.3.5  # Specify your Terraform version
+          terraform_version: 1.6.3  # Updated to the latest version
 
       # Initialize Terraform
       - name: Terraform Init
-        run: terraform init -backend-config="bucket=$BUCKET_TF_STATE"
+        run: terraform init -backend-config="bucket=${{ env.BUCKET_TF_STATE }}"
 
       # Check Terraform formatting
       - name: Terraform Format Check
@@ -65,3 +65,12 @@ jobs:
       - name: Terraform Plan Status
         if: ${{ steps.plan.outcome == 'failure' }}
         run: exit 1
+
+      # Apply Terraform changes if the plan is successful
+      - name: Terraform Apply
+        if: ${{ success() }}
+        run: terraform apply -no-color -input=false planfile
+
+      # Cleanup plan file
+      - name: Cleanup Plan File
+        run: rm -f planfile
