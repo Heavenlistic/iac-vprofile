@@ -56,27 +56,6 @@ jobs:
       - name: Terraform Validate
         run: terraform validate
 
-      # Plan Terraform changes
-      - name: Terraform Plan
-        id: plan
-        run: terraform plan -no-color -input=false -out=planfile
-
-      # Apply Terraform changes if the plan is successful
-      - name: Terraform Apply
-        if: ${{ steps.plan.outcome == 'success' }}
-        run: terraform apply -no-color -input=false planfile
-
-      # Plan to destroy resources (this step can be run manually or conditionally)
-      - name: Terraform Plan Destroy
-        id: destroy_plan
-        run: terraform plan -destroy -no-color -input=false -out=destroy_planfile
-
-      # Apply Terraform destroy plan if needed (uncomment to enable)
-      # - name: Terraform Destroy
-      #   if: ${{ steps.destroy_plan.outcome == 'success' }}
-      #   run: terraform apply -no-color -input=false destroy_planfile
-
-      # Check if the Terraform Plan step failed
-      - name: Terraform Plan Status
-        if: ${{ steps.plan.outcome == 'failure' }}
-        run: exit 1
+      # Destroy all previously created resources
+      - name: Terraform Destroy
+        run: terraform destroy -no-color -input=false -auto-approve
